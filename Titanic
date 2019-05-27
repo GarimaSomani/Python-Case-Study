@@ -1,0 +1,297 @@
+## 1. Importing Libraries and Packages
+
+import pandas as pd
+import seaborn as sns
+from matplotlib import pyplot as plt
+
+import warnings
+warnings.filterwarnings("ignore")
+
+## 2. Loading and Viewing Data Set
+
+training = pd.read_csv("C:/Users/GARIMA/Desktop/Data Set/train.csv")
+testing = pd.read_csv("C:/Users/GARIMA/Desktop/Data Set/test.csv")
+
+training.head()
+
+training.describe()
+
+print(training.keys())
+print(testing.keys())
+
+## 3. Dealing with NaN Values (Imputation)
+
+def null_table(training, testing):
+    print("Training Data Frame")
+    print(pd.isnull(training).sum())
+    print(" ")
+    print("Testing Data Frame")
+    print(pd.isnull(testing).sum())
+    
+null_table(training, testing)
+
+training.drop(labels = ["Ticket","Cabin"], axis=1, inplace = True)
+testing.drop(labels = ["Ticket","Cabin"], axis = 1, inplace = True)
+
+null_table(training, testing)
+
+copy = training.copy()
+copy.dropna(inplace = True)
+sns.distplot(copy["Age"])
+
+## The median will be an acceptable value to place in the NaN cells
+
+training["Age"].fillna(training["Age"].median(), inplace = True)
+testing["Age"].fillna(testing["Age"].median(), inplace = True)
+training["Embarked"].fillna("S", inplace = True)
+testing["Fare"].fillna(testing["Fare"].median(), inplace = True)
+
+null_table(training,testing)
+
+## 4. Plotting and Visualizing Data
+
+# Gender
+sns.barplot(x="Sex", y="Survived", data=training)
+plt.title("Distribution of Survival based on Gender")
+plt.show()
+
+total_survived_female = training[training.Sex == "female"]["Survived"].sum()
+total_survived_male = training[training.Sex == "male"]["Survived"].sum()
+
+print("Total people survived is : " + str((total_survived_female + total_survived_male)))
+
+print("Proportion of Female Survived is : " + str((total_survived_female)/(total_survived_female+total_survived_male)))
+print("Proportion of Male Survived is : " + str((total_survived_male)/(total_survived_female+total_survived_male)))
+
+# Class
+
+sns.barplot(x="Pclass", y="Survived", data=training)
+plt.ylabel("Survival Rate")
+plt.title("Distribution of survival based on Class")
+plt.show()
+
+total_survived_one = training[training.Pclass == 1]["Survived"].sum()
+total_survived_two = training[training.Pclass == 2]["Survived"].sum()
+total_survived_three = training[training.Pclass == 3]["Survived"].sum()
+
+total_survived_Class = total_survived_one + total_survived_two + total_survived_three
+print("Total_Survived_People : " +str(total_survived_Class))
+
+print("Proportion of Class1 passenger : " +str((total_survived_one)/total_survived_Class))
+print("Proportion of Class2 passenger : " +str((total_survived_two)/total_survived_Class))
+print("Proportion of Class3 passenger : " +str((total_survived_three)/total_survived_Class))
+
+# Gender and Class
+
+sns.barplot(x="Pclass", y="Survived", hue="Sex", data=training)
+plt.ylabel("Survival Rate")
+plt.title("Survival Rate based on gender & Class")
+plt.show()
+
+sns.barplot(x="Sex", y="Survived", hue="Pclass", data=training)
+plt.show()
+
+# Age
+
+Survived_ages = training[training.Survived == 1]["Age"]
+not_survived_ages = training[training.Survived == 0]["Age"]
+plt.subplot(1, 2, 1)
+sns.distplot(Survived_ages, kde=False)
+plt.axis([0,100,0,100])
+plt.title("Survived")
+plt.ylabel("Proportion")
+plt.subplot(1,2,2)
+sns.distplot(not_survived_ages, kde=False)
+plt.axis(0,100,0,100)
+plt.title("Didn't Survived")
+plt.show()
+
+sns.stripplot(x="Survived", y="Age", data=training, jitter = True)
+
+sns.pairplot(training)
+
+## 5. Feature Engineering
+
+training.sample(5)
+
+training.loc[training["Sex"] == "male", "Sex"] = 0
+training.loc[training["Sex"]=="female", "Sex"] = 1
+
+training.loc[training["Embarked"]=="S", "Embarked"] = 0
+training.loc[training["Embarked"]=="C", "Embarked"] = 1
+training.loc[training["Embarked"]=="Q", "Embarked"] = 2
+
+testing.loc[testing["Sex"]=="male", "Sex"] = 0
+testing.loc[testing["Sex"]=="female", "Sex"] = 1
+
+testing.loc[testing["Embarked"]=="S", "Embarked"] = 0
+testing.loc[testing["Embarked"]=="C", "Embarked"] = 1
+testing.loc[testing["Embarked"]=="Q", "Embarked"] = 2
+
+## We can combine SibSp and Parch into one synthetic feature called family size,
+# which indicates the total number of family members on board for each member.
+
+training["FamSize"] = training["SibSp"] + training["Parch"] + 1
+testing["FamSize"] = testing["SibSp"] + testing["Parch"] + 1
+
+##This IsAlone feature  also may work well with the data we're dealing with,
+# telling us whether the passenger was alone or not on the ship.
+
+training["IsAlone"] = training.FamSize.apply(lambda x : 1 if x == 1 else 0)
+testing["IsAlone"] = testing.FamSize.apply(lambda x : 1 if x == 1 else 0)
+
+## 6. Model Fitting and Predicting
+
+# sklearn Models to Test
+
+from sklearn.svm import SVC, LinearSVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.tree import DecisionTreeClassifier
+
+# To evaluate our model performance, we can use the make_scorere and 
+# accuracy_score function from sklearn metrics.
+
+from sklearn.metrics import make_scorer, accuracy_score
+
+# We can also use a GridSearch cross validation to find the optimal parameters
+# for the model we choose to work with and use to predict on our testing set.
+
+from sklearn.model_selection import GridSearchCV
+
+# Define features in Training/Test Set
+
+features = ["Pclass", "Sex", "Age", "Embarked", "Fare", "FamSize", "IsAlone"]
+X_train = training[features]
+y_train = training["Survived"]
+X_test = testing[features]
+## we don't have y_test, that is what we're trying to predict with our model
+
+## Validation Data Set
+
+from sklearn.model_selection import train_test_split # to create validation dataset
+X_training, X_valid, y_training, y_valid = train_test_split(X_train, y_train,
+                                     test_size=0.2, random_state = 0)
+
+# SVC Model
+
+svc_clf = SVC()
+svc_clf.fit(X_training, y_training)
+pred_svc = svc_clf.predict(X_valid)
+acc_svc = accuracy_score(y_valid,pred_svc)
+
+print(acc_svc)
+
+# LinearSVC Model
+
+linsvc_clf = LinearSVC()
+linsvc_clf.fit(X_training, y_training)
+pred_linsvc = linsvc_clf.predict(X_valid)
+acc_linsvc = accuracy_score(y_valid, pred_linsvc)
+
+print(acc_linsvc)
+
+# RandomForest Model
+
+rf_clf = RandomForestClassifier()
+rf_clf.fit(X_training, y_training)
+pred_rf = rf_clf.predict(X_valid)
+acc_rf = accuracy_score(y_valid, pred_rf)
+
+print(acc_rf)
+
+# Logistic Regression Model
+
+logreg_clf = LogisticRegression()
+logreg_clf.fit(X_training, y_training)
+pred_logreg = logreg_clf.predict(X_valid)
+acc_logreg = accuracy_score(y_valid, pred_logreg)
+
+print(acc_logreg)
+
+# KNeighbors Model
+
+knn_clf = KNeighborsClassifier()
+knn_clf.fit(X_training, y_training)
+pred_knn = knn_clf.predict(X_valid)
+acc_knn = accuracy_score(y_valid, pred_knn)
+
+print(acc_knn)
+
+# GaussianNB Model
+
+gnb_clf = GaussianNB()
+gnb_clf.fit(X_training, y_training)
+pred_gnb = gnb_clf.predict(X_valid)
+acc_gnb = accuracy_score(y_valid, pred_gnb)
+
+print(acc_gnb)
+
+# Decision Tree Model
+
+dt_clf = DecisionTreeClassifier()
+dt_clf.fit(X_training, y_training)
+pred_dt = dt_clf.predict(X_valid)
+acc_dt = accuracy_score(y_valid, pred_dt)
+
+print(acc_dt)
+
+## 7. Evaluating Model Performances
+
+model_performance = pd.DataFrame({
+       "Model" : ["SVC", "LinearSVC", "Random Forest",
+                  "Logistic Regression", "K Nearest Neighbors", "Gaussian Naive Bayse",
+                  "Decision Tree"],
+    "Accuracy" : [acc_svc, acc_linsvc, acc_rf, acc_logreg, acc_knn, acc_gnb,
+                  acc_dt]
+           })
+
+model_performance.sort_values(by="Accuracy", ascending = False)
+
+# It appears that the Random Forest model works the best with our data 
+# so we will use it on the test set.
+
+## 8. Tuning Parameters with GridSearchCV
+
+# We can improve the accuracy of our model by turning the hyperparameters of 
+# our Random Forest model. We will run a GridSearchCV to find the best parameters
+# for the model and use that model to train and test our data.
+
+rf_clf = RandomForestClassifier()
+
+parameters = {"n_estimators" : [4,5,6,7,8,9,10,15],
+    "criterion" : ["gini", "entropy"],
+    "max_features" : ["auto", "sqrt", "log2"],
+    "max_depth" : [2,3,5,10],
+    "min_samples_split" : [2,3,5,10],
+    "min_samples_leaf" : [1,5,8,10]
+        }
+
+grid_cv = GridSearchCV(rf_clf,parameters, scoring = make_scorer(accuracy_score))
+grid_cv = grid_cv.fit(X_train, y_train)
+
+print("Our optimized Random Forest Model is: ")
+grid_cv.best_estimator_
+
+# Great, now that we have the optimal parameters for our Random Forest model,
+# we can build a new model with those parameters to fit and use on the test set.
+
+rf_clf = grid_cv.best_estimator_
+rf_clf.fit(X_train, y_train)
+
+## 9. Submission
+
+submission_predictions = rf_clf.predict(X_test)
+submission = pd.DataFrame({
+        "PassengerId" : testing["PassengerId"],
+        "Survived" : submission_predictions
+            })
+
+submission.to_csv("C:/Users/GARIMA/Desktop/Data Set/Test Output.csv", index = False)
+print(submission.shape)
+
+
+#############################################################################
+#Completed
